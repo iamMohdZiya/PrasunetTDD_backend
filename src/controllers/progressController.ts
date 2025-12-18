@@ -1,10 +1,6 @@
-// src/controllers/progressController.ts
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
-
-// MOCK DATABASE: Stores completed chapters
-// Format: "userId-courseId-sequenceOrder"
-const MOCK_PROGRESS_DB: string[] = [];
+import { supabase } from '../config/supabase';
 
 export const completeChapter = async (req: AuthRequest, res: Response) => {
   const { courseId, chapterId, sequenceOrder } = req.body;
@@ -12,26 +8,39 @@ export const completeChapter = async (req: AuthRequest, res: Response) => {
 
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-  // 1. THE LOGIC: Check Prerequisites
-  if (sequenceOrder > 1) {
-    const previousChapterKey = `${userId}-${courseId}-${sequenceOrder - 1}`;
-    
-    // Check if the previous chapter exists in our "DB"
-    if (!MOCK_PROGRESS_DB.includes(previousChapterKey)) {
-      return res.status(400).json({ 
-        message: 'Prerequisite not met: You must complete the previous chapter first.' 
-      });
+  try {
+    // 1. CHECK PREREQUISITES (If not the first chapter)
+    if (sequenceOrder > 1) {
+      const { data: prevProgress } = await supabase
+        .from('progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('course_id', courseId)
+        .eq('chapter_id', chapterId - 1) // Assuming chapter_id aligns with sequence for simplicity
+        // In a real app, you'd fetch the chapter by sequence_order first
+        .single();
+
+      if (!prevProgress) {
+        return res.status(400).json({ 
+          message: 'Prerequisite not met: Complete previous chapters first.' 
+        });
+      }
     }
-  }
 
-  // 2. Save Progress (Simulate DB Insert)
-  const currentChapterKey = `${userId}-${courseId}-${sequenceOrder}`;
-  if (!MOCK_PROGRESS_DB.includes(currentChapterKey)) {
-    MOCK_PROGRESS_DB.push(currentChapterKey);
-  }
+    // 2. SAVE PROGRESS
+    const { error } = await supabase
+      .from('progress')
+      .insert([{ user_id: userId, course_id: courseId, chapter_id: chapterId }]);
 
-  res.status(200).json({ 
-    message: 'Chapter completed successfully',
-    progress: MOCK_PROGRESS_DB 
-  });
+    if (error) {
+        // Handle duplicate entry (Unique constraint) gracefully
+        if (error.code === '23505') return res.status(200).json({ message: 'Already completed' });
+        throw error;
+    }
+
+    res.status(200).json({ message: 'Chapter completed successfully' });
+
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
 };

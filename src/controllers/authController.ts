@@ -1,50 +1,69 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { supabase } from '../config/supabase';
 
-// Mock User Data (Acting as our Database for now)
-const MOCK_USER = {
-  id: 'uuid-1234-5678',
-  email: 'student@test.com',
-  passwordHash: '$2a$10$wI.q...hashedpassword...', // We won't check this strictly yet
-  role: 'student'
-};
-
+// REGISTER
 export const register = async (req: Request, res: Response) => {
-  res.status(201).json({
-    message: 'User registered successfully',
-    userId: 'some-mock-id', 
-  });
+  const { email, password, role } = req.body;
+
+  try {
+    // 1. Hash the password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // 2. Insert into Supabase
+    const { data, error } = await supabase
+      .from('users')
+      .insert([{ email, password_hash: passwordHash, role: role || 'student' }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json({ 
+      message: 'User registered successfully', 
+      userId: data.id 
+    });
+  } catch (err: any) {
+    res.status(400).json({ message: err.message || 'Registration failed' });
+  }
 };
 
+// LOGIN
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  // 1. Validate Input
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password required' });
-  }
+  try {
+    // 1. Find User
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
 
-  // 2. Find User (Mock DB check)
-  if (email !== MOCK_USER.email) {
-    return res.status(401).json({ message: 'Invalid credentials' });
-  }
-
-  // 3. Generate JWT
-  const token = jwt.sign(
-    { userId: MOCK_USER.id, role: MOCK_USER.role }, // Payload
-    process.env.JWT_SECRET || 'default_secret',     // Secret Key
-    { expiresIn: '1h' }                             // Options
-  );
-
-  // 4. Send Response
-  res.status(200).json({
-    message: 'Login successful',
-    token,
-    user: {
-      id: MOCK_USER.id,
-      email: MOCK_USER.email,
-      role: MOCK_USER.role
+    if (error || !user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-  });
+
+    // 2. Check Password
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // 3. Generate Token
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET!,
+      { expiresIn: '1h' }
+    );
+
+    res.status(200).json({
+      message: 'Login successful',
+      token,
+      user: { id: user.id, email: user.email, role: user.role }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Login failed' });
+  }
 };
