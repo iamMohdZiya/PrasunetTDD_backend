@@ -5,6 +5,7 @@ import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes'; 
 import progressRoutes from './routes/progressRoutes';
 import certificateRoutes from './routes/certificateRoutes';
+import courseRoutes from './routes/courseRoutes';
 
 const app: Application = express();
 
@@ -20,5 +21,5 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes); 
 app.use('/api/progress', progressRoutes);
 app.use('/api/certificates', certificateRoutes);
-
+app.use('/api/courses', courseRoutes);
 export default app;
