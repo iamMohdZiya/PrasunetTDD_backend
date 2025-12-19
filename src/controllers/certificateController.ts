@@ -8,28 +8,41 @@ export const getCertificate = async (req: AuthRequest, res: Response) => {
   const userId = req.user?.userId;
 
   try {
-    // 1. Verify Completion (Same logic as before)
-    // ... (Keep your existing check logic here) ...
-    // Assume we passed the checks:
+    // 1. Verify Completion
+    const { count: totalChapters } = await supabase
+      .from('chapters')
+      .select('*', { count: 'exact', head: true })
+      .eq('course_id', courseId);
 
-    // 2. Fetch User & Course Names for the Certificate
+    const { count: completedChapters } = await supabase
+      .from('progress')
+      .select('*', { count: 'exact', head: true })
+      .eq('course_id', courseId)
+      .eq('user_id', userId);
+
+    if (!totalChapters || !completedChapters || completedChapters < totalChapters) {
+      return res.status(403).json({ message: 'Course not 100% complete.' });
+    }
+
+    // 2. Fetch Info
     const { data: user } = await supabase.from('users').select('email').eq('id', userId).single();
     const { data: course } = await supabase.from('courses').select('title').eq('id', courseId).single();
 
     // 3. Generate PDF
     const doc = new PDFDocument({ layout: 'landscape', size: 'A4' });
 
-    // Stream directly to the browser
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=certificate-${courseId}.pdf`);
     
     doc.pipe(res);
 
-    // Design the Certificate
-    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#f0f0f0'); // Background
-    doc.rect(20, 20, doc.page.width - 40, doc.page.height - 40).strokeColor('#2c3e50').lineWidth(5).stroke(); // Border
+    // Design
+    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#f0f0f0');
+    doc.rect(20, 20, doc.page.width - 40, doc.page.height - 40).strokeColor('#2c3e50').lineWidth(5).stroke();
 
-    doc.fillColor('#2c3e50').fontSize(40).text('CERTIFICATE OF COMPLETION', { align: 'center', valign: 'center' });
+    // FIXED LINE BELOW: Removed 'valign'
+    doc.fillColor('#2c3e50').fontSize(40).text('CERTIFICATE OF COMPLETION', { align: 'center' });
+    
     doc.moveDown();
     doc.fontSize(20).text('This certifies that', { align: 'center' });
     doc.moveDown();

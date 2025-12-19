@@ -1,22 +1,20 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/supabase';
+import { AuthRequest } from '../middleware/authMiddleware'; 
 
+// 1. Get Course Content (Student)
 export const getCourseWithChapters = async (req: Request, res: Response) => {
   const { courseId } = req.params;
 
   try {
-    // 1. Fetch Course Details
     const { data: course, error: courseError } = await supabase
       .from('courses')
       .select('*')
       .eq('id', courseId)
       .single();
 
-    if (courseError || !course) {
-      return res.status(404).json({ message: 'Course not found' });
-    }
+    if (courseError || !course) return res.status(404).json({ message: 'Course not found' });
 
-    // 2. Fetch Chapters (Sorted)
     const { data: chapters, error: chapterError } = await supabase
       .from('chapters')
       .select('*')
@@ -31,9 +29,7 @@ export const getCourseWithChapters = async (req: Request, res: Response) => {
   }
 };
 
-// Add these functions to src/controllers/courseController.ts
-
-// 1. Create Course
+// 2. Create Course (Mentor)
 export const createCourse = async (req: AuthRequest, res: Response) => {
   const { title, description } = req.body;
   const mentorId = req.user?.userId;
@@ -47,7 +43,7 @@ export const createCourse = async (req: AuthRequest, res: Response) => {
   res.status(201).json(data);
 };
 
-// 2. Add Chapter
+// 3. Add Chapter (Mentor)
 export const addChapter = async (req: AuthRequest, res: Response) => {
   const { courseId } = req.params;
   const { title, sequenceOrder, contentUrl } = req.body;
@@ -61,7 +57,7 @@ export const addChapter = async (req: AuthRequest, res: Response) => {
   res.status(201).json(data);
 };
 
-// 3. Get My Courses (Mentor Only)
+// 4. Get My Courses (Mentor)
 export const getMyCourses = async (req: AuthRequest, res: Response) => {
   const mentorId = req.user?.userId;
   const { data } = await supabase.from('courses').select('*').eq('mentor_id', mentorId);
