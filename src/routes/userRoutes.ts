@@ -1,13 +1,11 @@
-// src/routes/userRoutes.ts
 import { Router } from 'express';
-import { getAllUsers } from '../controllers/userController';
+import { getAllUsers, approveMentor } from '../controllers/userController';
 import { authenticate, authorize } from '../middleware/authMiddleware';
 
 const router = Router();
 
-// PROTECTED ROUTE: Only Admins can see all users
-// 1. authenticate (Check Token)
-// 2. authorize(['admin']) (Check Permission)
+// Admin Only Routes
 router.get('/', authenticate, authorize(['admin']), getAllUsers);
+router.put('/:id/approve-mentor', authenticate, authorize(['admin']), approveMentor);
 
 export default router;
