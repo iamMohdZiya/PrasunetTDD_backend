@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { completeChapter } from '../controllers/progressController'; 
-import { getMyProgress } from '../controllers/progressController'; 
+
+import { getMyProgress,completeChapter } from '../controllers/progressController'; 
 import { authenticate, authorize } from '../middleware/authMiddleware';
 
 const router = Router();
