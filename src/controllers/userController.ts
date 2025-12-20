@@ -69,3 +69,16 @@ export const getAdminStats = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Failed to load stats. Check server logs.' });
   }
 };
+
+// Add to src/controllers/userController.ts
+
+export const deleteUser = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const { error } = await supabase.from('users').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ message: 'User deleted' });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};

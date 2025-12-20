@@ -165,3 +165,52 @@ export const getCourseWithChapters = async (req: AuthRequest, res: Response) => 
     res.status(500).json({ message: err.message });
   }
 };
+
+// Add these to src/controllers/courseController.ts
+
+// [PUT] Update Course Details
+export const updateCourse = async (req: AuthRequest, res: Response) => {
+  const { courseId } = req.params;
+  const { title, description } = req.body;
+  
+  try {
+    const { error } = await supabase
+      .from('courses')
+      .update({ title, description })
+      .eq('id', courseId)
+      .eq('mentor_id', req.user?.userId); // Security: Only owner can edit
+
+    if (error) throw error;
+    res.json({ message: 'Course updated successfully' });
+  } catch (err: any) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// [DELETE] Delete Course (and all its chapters/assignments)
+export const deleteCourse = async (req: AuthRequest, res: Response) => {
+  const { courseId } = req.params;
+
+  try {
+    // Note: In a real DB, you'd use CASCADE delete. 
+    // Here we might need to manually delete related rows if CASCADE isn't set up.
+    
+    // 1. Delete Chapters
+    await supabase.from('chapters').delete().eq('course_id', courseId);
+    
+    // 2. Delete Assignments
+    await supabase.from('assignments').delete().eq('course_id', courseId);
+    
+    // 3. Delete Course
+    const { error } = await supabase
+      .from('courses')
+      .delete()
+      .eq('id', courseId)
+      .eq('mentor_id', req.user?.userId);
+
+    if (error) throw error;
+    res.json({ message: 'Course deleted successfully' });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};

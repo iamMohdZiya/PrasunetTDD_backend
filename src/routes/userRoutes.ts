@@ -1,6 +1,6 @@
 // src/routes/userRoutes.ts
 import { Router } from 'express';
-import { getAllUsers, approveMentor, getAdminStats } from '../controllers/userController';
+import { getAllUsers, approveMentor, getAdminStats,deleteUser } from '../controllers/userController';
 import { authenticate, authorize } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -11,5 +11,5 @@ router.get('/stats', authenticate, authorize(['admin']), getAdminStats);
 // Existing User Management
 router.get('/', authenticate, authorize(['admin']), getAllUsers);
 router.put('/:id/approve-mentor', authenticate, authorize(['admin']), approveMentor);
-
+router.delete('/:id', authenticate, authorize(['admin']), deleteUser);
 export default router;
