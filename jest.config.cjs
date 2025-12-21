@@ -1,9 +1,16 @@
-// jest.config.js
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  testMatch: ['**/**/*.test.ts'], 
-  verbose: true,
-  forceExit: true,
-  clearMocks: true,
+  
+  // This line is CRITICAL: it loads the fake env vars from jest.setup.js
+  setupFiles: ['<rootDir>/jest.setup.js'], 
+  
+  testMatch: ['**/*.test.ts'], // Looks for .test.ts files
+  collectCoverage: true,       // Force coverage report generation
+  coverageDirectory: 'coverage',
+  coveragePathIgnorePatterns: [
+    "/node_modules/",
+    "/config/",
+    "/dist/"
+  ]
 };

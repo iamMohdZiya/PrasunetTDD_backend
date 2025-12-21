@@ -3,10 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
-    "dev": "nodemon src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
+   "dev": "ts-node-dev src/server.ts", 
+  "test": "jest",
+  "test:coverage": "jest --coverage"
   },
   "keywords": [],
   "author": "",

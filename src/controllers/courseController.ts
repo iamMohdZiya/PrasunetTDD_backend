@@ -24,29 +24,43 @@ export const createCourse = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// 2. Add a Chapter to a Course
-// Update the addChapter function
+// 2. Add a Chapter to a Course (Updated for Description)
 export const addChapter = async (req: AuthRequest, res: Response) => {
-  const { courseId } = req.params;
-  // Added imageUrl below
-  const { title, sequenceOrder, contentUrl, imageUrl } = req.body; 
-
   try {
+    const { courseId } = req.params;
+    // Extract 'description' along with other fields
+    const { title, description, sequenceOrder, contentUrl } = req.body;
+
+    // Validation
+    if (!title || !sequenceOrder) {
+      return res.status(400).json({ message: "Title and sequence order are required" });
+    }
+
+    // Optional: Verify course ownership before adding chapter (Security Best Practice)
+    // const { data: course } = await supabase.from('courses').select('mentor_id').eq('id', courseId).single();
+    // if (course?.mentor_id !== req.user?.userId) return res.status(403).json({ message: "Unauthorized" });
+
+    // Insert into Supabase including the new description column
     const { data, error } = await supabase
       .from('chapters')
-      .insert([{ 
-        course_id: courseId, 
-        title, 
-        sequence_order: sequenceOrder, 
-        content_url: contentUrl,
-        image_url: imageUrl // <--- Map to DB column
-      }])
-      .select();
+      .insert([
+        {
+          course_id: courseId,
+          title,
+          description: description || "", // Handle optional description
+          sequence_order: sequenceOrder,
+          content_url: contentUrl
+        }
+      ])
+      .select()
+      .single();
 
     if (error) throw error;
-    res.status(201).json(data);
-  } catch (err: any) {
-    res.status(400).json({ message: err.message });
+
+    res.status(201).json({ message: "Chapter added successfully", chapter: data });
+
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -154,10 +168,10 @@ export const getCourseWithChapters = async (req: AuthRequest, res: Response) => 
 
     if (courseError || !course) return res.status(404).json({ message: 'Course not found' });
 
-    // C. Get Chapters
+    // C. Get Chapters (Includes description if DB column exists)
     const { data: chapters, error: chapterError } = await supabase
       .from('chapters')
-      .select('*')
+      .select('*') 
       .eq('course_id', courseId)
       .order('sequence_order', { ascending: true });
 
@@ -169,9 +183,7 @@ export const getCourseWithChapters = async (req: AuthRequest, res: Response) => 
   }
 };
 
-// Add these to src/controllers/courseController.ts
-
-// [PUT] Update Course Details
+// 7. Update Course Details
 export const updateCourse = async (req: AuthRequest, res: Response) => {
   const { courseId } = req.params;
   const { title, description } = req.body;
@@ -190,13 +202,13 @@ export const updateCourse = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// [DELETE] Delete Course (and all its chapters/assignments)
+// 8. Delete Course (and all its chapters/assignments)
 export const deleteCourse = async (req: AuthRequest, res: Response) => {
   const { courseId } = req.params;
 
   try {
     // Note: In a real DB, you'd use CASCADE delete. 
-    // Here we might need to manually delete related rows if CASCADE isn't set up.
+    // Here we manually delete related rows if CASCADE isn't set up.
     
     // 1. Delete Chapters
     await supabase.from('chapters').delete().eq('course_id', courseId);
