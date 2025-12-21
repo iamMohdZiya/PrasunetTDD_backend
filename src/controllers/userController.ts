@@ -33,34 +33,72 @@ export const getAdminStats = async (req: AuthRequest, res: Response) => {
   try {
     console.log("Admin Stats: Fetching...");
 
-    // 1. Simpler Query (Removed strict !alias hints)
+    // 1. Fetch courses with mentor and assignments
     const { data: courses, error } = await supabase
       .from('courses')
       .select(`
         id,
         title,
-        mentor:users!courses_mentor_id_fkey ( email ), 
+        mentor:users!courses_mentor_id_fkey ( id, email, full_name ), 
         assignments (
-          student:users ( email )
+          student_id,
+          student:users ( id, email, full_name )
         )
       `);
 
-    // Note: If the above fails, Supabase might just need standard joining:
-    // .select('id, title, users(email), assignments(users(email))')
-    
     if (error) {
-      console.error("Supabase Error:", error); // <--- LOGS ERROR TO TERMINAL
+      console.error("Supabase Error:", error);
       throw error;
     }
 
-    // 2. Format Data Safely
-    const stats = courses.map((c: any) => ({
-      courseId: c.id,
-      title: c.title,
-      // Handle cases where mentor might be null
-      mentorEmail: c.mentor?.email || 'Unknown', 
-      studentCount: c.assignments?.length || 0,
-      students: c.assignments?.map((a: any) => a.student?.email).filter(Boolean) || []
+    // 2. Enrich with completion data
+    const stats = await Promise.all(courses.map(async (c: any) => {
+      // Get total chapters
+      const { count: totalChapters } = await supabase
+        .from('chapters')
+        .select('*', { count: 'exact', head: true })
+        .eq('course_id', c.id);
+
+      // For each student, get their completion status
+      const studentStats = await Promise.all(
+        (c.assignments || []).map(async (a: any) => {
+          const { count: completed } = await supabase
+            .from('progress')
+            .select('*', { count: 'exact', head: true })
+            .eq('course_id', c.id)
+            .eq('user_id', a.student_id);
+
+          const totalCount = totalChapters || 0;
+          const completedCount = completed || 0;
+          const percentage = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+
+          return {
+            studentId: a.student_id,
+            studentEmail: a.student?.email || 'Unknown',
+            studentName: a.student?.full_name || 'Unknown',
+            completed: completedCount,
+            total: totalCount,
+            percentage,
+            isCompleted: completedCount >= totalCount && totalCount > 0
+          };
+        })
+      );
+
+      const completedCount = studentStats.filter(s => s.isCompleted).length;
+      const notCompletedCount = studentStats.filter(s => !s.isCompleted).length;
+
+      return {
+        courseId: c.id,
+        title: c.title,
+        mentorId: c.mentor?.id,
+        mentorEmail: c.mentor?.email || 'Unknown',
+        mentorName: c.mentor?.full_name || 'Unknown',
+        totalChapters: totalChapters || 0,
+        totalStudents: studentStats.length,
+        studentsCompleted: completedCount,
+        studentsNotCompleted: notCompletedCount,
+        studentDetails: studentStats
+      };
     }));
 
     res.json(stats);
