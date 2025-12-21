@@ -29,29 +29,30 @@ export const addChapter = async (req: AuthRequest, res: Response) => {
   try {
     const { courseId } = req.params;
     
-    // Extract fields from frontend payload
+    // 🔍 CHECK 1: Are you extracting 'imageUrl' and 'description' here?
     const { 
       title, 
       description, 
       sequenceOrder, 
       contentUrl, 
-      imageUrl // Frontend sends 'imageUrl'
+      imageUrl // <--- Frontend sends 'imageUrl'
     } = req.body;
 
     if (!title || !sequenceOrder) {
       return res.status(400).json({ message: "Title and sequence order are required" });
     }
 
+    // 🔍 CHECK 2: Are you passing them to Supabase here?
     const { data, error } = await supabase
       .from('chapters')
       .insert([
         {
           course_id: courseId,
           title,
-          description: description || "", 
+          description: description || "",  // <--- Saving Description
           sequence_order: sequenceOrder,
           content_url: contentUrl,
-          image_url: imageUrl || "" // Map 'imageUrl' to DB column 'image_url'
+          image_url: imageUrl || ""        // <--- Saving Image URL to 'image_url' column
         }
       ])
       .select()
