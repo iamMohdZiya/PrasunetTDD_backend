@@ -219,3 +219,132 @@ export const getCourseWithChapters = async (req: AuthRequest, res: Response) => 
     res.status(500).json({ message: err.message });
   }
 };
+
+// 7. Update Course (Mentor or Admin)
+export const updateCourse = async (req: AuthRequest, res: Response) => {
+  const { courseId } = req.params;
+  const { title, description } = req.body;
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+
+  try {
+    const { data: course, error: courseErr } = await supabase
+      .from('courses')
+      .select('id, mentor_id')
+      .eq('id', courseId)
+      .single();
+
+    if (courseErr || !course) return res.status(404).json({ message: 'Course not found' });
+
+    // Only the mentor who created the course or an admin can update
+    if (role !== 'admin' && course.mentor_id !== userId) {
+      return res.status(403).json({ message: 'Access Denied: Cannot edit this course' });
+    }
+
+    const { data, error } = await supabase
+      .from('courses')
+      .update({ title, description })
+      .eq('id', courseId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ message: 'Course updated', course: data });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 8. Delete Course (Mentor or Admin)
+export const deleteCourse = async (req: AuthRequest, res: Response) => {
+  const { courseId } = req.params;
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+
+  try {
+    const { data: course, error: courseErr } = await supabase
+      .from('courses')
+      .select('id, mentor_id')
+      .eq('id', courseId)
+      .single();
+
+    if (courseErr || !course) return res.status(404).json({ message: 'Course not found' });
+
+    if (role !== 'admin' && course.mentor_id !== userId) {
+      return res.status(403).json({ message: 'Access Denied: Cannot delete this course' });
+    }
+
+    // Delete related records (assignments, progress, chapters) to be safe
+    await supabase.from('assignments').delete().eq('course_id', courseId);
+    await supabase.from('progress').delete().eq('course_id', courseId);
+    await supabase.from('chapters').delete().eq('course_id', courseId);
+
+    const { error } = await supabase.from('courses').delete().eq('id', courseId);
+    if (error) throw error;
+
+    res.json({ message: 'Course deleted' });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 9. Update Chapter (Mentor or Admin)
+export const updateChapter = async (req: AuthRequest, res: Response) => {
+  const { courseId, chapterId } = req.params;
+  const { title, description, sequenceOrder, contentUrl, imageUrl } = req.body;
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+
+  try {
+    // Verify course exists and ownership
+    const { data: course, error: courseErr } = await supabase
+      .from('courses')
+      .select('id, mentor_id')
+      .eq('id', courseId)
+      .single();
+
+    if (courseErr || !course) return res.status(404).json({ message: 'Course not found' });
+    if (role !== 'admin' && course.mentor_id !== userId) return res.status(403).json({ message: 'Access Denied' });
+
+    const { data, error } = await supabase
+      .from('chapters')
+      .update({ title, description, sequence_order: sequenceOrder, content_url: contentUrl, image_url: imageUrl })
+      .eq('id', chapterId)
+      .eq('course_id', courseId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ message: 'Chapter updated', chapter: data });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 10. Delete Chapter (Mentor or Admin)
+export const deleteChapter = async (req: AuthRequest, res: Response) => {
+  const { courseId, chapterId } = req.params;
+  const userId = req.user?.userId;
+  const role = req.user?.role;
+
+  try {
+    const { data: course, error: courseErr } = await supabase
+      .from('courses')
+      .select('id, mentor_id')
+      .eq('id', courseId)
+      .single();
+
+    if (courseErr || !course) return res.status(404).json({ message: 'Course not found' });
+    if (role !== 'admin' && course.mentor_id !== userId) return res.status(403).json({ message: 'Access Denied' });
+
+    // Delete progress entries referencing this chapter first
+    await supabase.from('progress').delete().eq('chapter_id', chapterId);
+
+    const { error } = await supabase.from('chapters').delete().eq('id', chapterId).eq('course_id', courseId);
+    if (error) throw error;
+
+    res.json({ message: 'Chapter deleted' });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};

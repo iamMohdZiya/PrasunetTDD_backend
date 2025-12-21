@@ -6,6 +6,7 @@ import {
   assignStudentToCourse, 
   getStudentAssignedCourses, 
   getCourseWithChapters
+  , updateCourse, deleteCourse, updateChapter, deleteChapter
 } from '../controllers/courseController';
 import { authenticate, authorize } from '../middleware/authMiddleware';
 
@@ -22,5 +23,11 @@ router.get('/:courseId', authenticate, getCourseWithChapters);
 router.post('/', authenticate, authorize(['mentor']), createCourse);
 router.post('/:courseId/chapters', authenticate, authorize(['mentor']), addChapter);
 router.post('/:courseId/assign', authenticate, authorize(['mentor']), assignStudentToCourse);
+// Update and Delete (mentor or admin)
+router.put('/:courseId', authenticate, authorize(['mentor','admin']), updateCourse);
+router.delete('/:courseId', authenticate, authorize(['mentor','admin']), deleteCourse);
+// Chapter edit / delete
+router.put('/:courseId/chapters/:chapterId', authenticate, authorize(['mentor','admin']), updateChapter);
+router.delete('/:courseId/chapters/:chapterId', authenticate, authorize(['mentor','admin']), deleteChapter);
 
 export default router;
